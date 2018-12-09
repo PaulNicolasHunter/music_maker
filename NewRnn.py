@@ -129,7 +129,7 @@ class EdmMaker:
 
 					print('loss => ', error)
 
-		saver.save(sess, "graphs/music_mix")
+			saver.save(sess, "graphs/music_mix")
 
 	def get_music(self):
 		pass
