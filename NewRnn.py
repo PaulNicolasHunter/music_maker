@@ -41,17 +41,17 @@ class EdmMaker:
 	def __init__(self, filepath):
 		self.input_size = 3
 		self.output_size = 3
-		self.num_steps = 2500
+		self.num_steps = 25
 		self.filepath = filepath
 		self.learning_rate = 0.00252
 		self.f_bias = 0.0021
 		self.num_iterations = 1
 		self.neurons = 400
-		self.inpt = tf.placeholder(dtype=tf.float16,
+		self.inpt = tf.placeholder(dtype=tf.float64,
 								   shape=[None, self.num_steps,
 										  self.input_size])  # how may rows in each cell/n-cell/column
 
-		self.oupt = tf.placeholder(dtype=tf.float16, shape=[None, self.num_steps, self.output_size])
+		self.oupt = tf.placeholder(dtype=tf.float64, shape=[None, self.num_steps, self.output_size])
 
 	def read_wav(self):
 		music = np.array(list(read(self.filepath)[1]))
@@ -62,7 +62,7 @@ class EdmMaker:
 
 		music = music[st_pt:]
 
-		self.full = int(len(music) / 2500)
+		self.full = int(len(music) / self.num_steps)
 
 		# init = 0
 
@@ -81,22 +81,22 @@ class EdmMaker:
 			st_pt, starting)]).reshape([-1, 1])
 
 		self.mus_inp = np.append(music[:-1], time_tags[:-1], 1)
-		self.mus_inp = np.append(self.mus_inp, [0, 0, 0]).reshape([-1, 2500, 3])
+		self.mus_inp = np.append(self.mus_inp, [0, 0, 0]).reshape([-1, self.num_steps, 3])
 
 		self.mus_target = np.append(music[1:], time_tags[1:], 1)
-		self.mus_target = np.append(self.mus_target, [0, 0, 0]).reshape([-1, 2500, 3])
+		self.mus_target = np.append(self.mus_target, [0, 0, 0]).reshape([-1, self.num_steps, 3])
 
 	def network_creation(self):
 		cell = tf.contrib.rnn.OutputProjectionWrapper(
 
-			tf.nn.rnn_cell.LSTMCell(self.neurons, forget_bias=self.f_bias, activation=tf.nn.relu),
+			tf.nn.rnn_cell.LSTMCell(self.neurons, activation=tf.nn.relu, forget_bias=self.f_bias ),
 
 			output_size=self.output_size)
 
-		output, state = tf.nn.dynamic_rnn(cell, self.inpt, dtype=tf.float16)
+		output, state = tf.nn.dynamic_rnn(cell, self.inpt, dtype=tf.float64)
 
-		self.loss = tf.reduce_mean(tf.square(self.oupt - output))
-		# self.loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=output, labels=self.oupt)
+		# self.loss = tf.reduce_mean(tf.square(self.oupt - output))
+		self.loss = tf.nn.softmax_cross_entropy_with_logits_v2(logits=output, labels=self.oupt)
 
 		optimiser = tf.train.AdamOptimizer(learning_rate=self.learning_rate)
 
@@ -124,9 +124,10 @@ class EdmMaker:
 
 					print(' {} / {} '.format(seri_x, datlen))
 
-		# error = self.loss.eval(feed_dict={self.inpt: seriX, self.oupt: seriY})
-		#
-		# print('loss => ', error)
+					error = self.loss.eval(feed_dict={self.inpt: self.mus_inp[seri_x].reshape([1, -1, 3]),
+													  self.oupt: self.mus_target[seri_x].reshape([1, -1, 3])})
+
+					print('loss => ', error)
 
 		saver.save(sess, "graphs/music_mix")
 
